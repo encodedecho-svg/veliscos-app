@@ -1,15 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { getConfig, updateConfig, type AppConfig } from "@/lib/admin-config";
+import {
+  listStaff,
+  addStaff,
+  removeStaff,
+  type StaffMember,
+} from "@/lib/admin-staff";
 import { logActivity } from "@/lib/admin-activity";
+import { useAuth } from "@/lib/auth";
 
 export default function AdminSettingsPage() {
+  const { user } = useAuth();
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [draft, setDraft] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(true);
+  const [newStaffEmail, setNewStaffEmail] = useState("");
+  const [addingStaff, setAddingStaff] = useState(false);
+
+  const refreshStaff = useCallback(async () => {
+    setStaffLoading(true);
+    setStaff(await listStaff());
+    setStaffLoading(false);
+  }, []);
 
   useEffect(() => {
     getConfig().then((c) => {
@@ -17,7 +37,39 @@ export default function AdminSettingsPage() {
       setDraft(c);
       setLoading(false);
     });
-  }, []);
+    refreshStaff();
+  }, [refreshStaff]);
+
+  async function onAddStaff() {
+    if (!newStaffEmail.trim()) return;
+    setAddingStaff(true);
+    const { error } = await addStaff(newStaffEmail);
+    setAddingStaff(false);
+    if (error) {
+      setToast({ kind: "err", msg: error });
+      return;
+    }
+    setToast({ kind: "ok", msg: `Added ${newStaffEmail.trim().toLowerCase()}` });
+    setTimeout(() => setToast(null), 2500);
+    setNewStaffEmail("");
+    refreshStaff();
+  }
+
+  async function onRemoveStaff(email: string) {
+    if (email === user?.email) {
+      alert("You can't remove yourself — ask another admin to do it.");
+      return;
+    }
+    if (!confirm(`Remove ${email} from admins?`)) return;
+    const { error } = await removeStaff(email);
+    if (error) {
+      setToast({ kind: "err", msg: error });
+      return;
+    }
+    setToast({ kind: "ok", msg: `Removed ${email}` });
+    setTimeout(() => setToast(null), 2500);
+    refreshStaff();
+  }
 
   function setField<K extends keyof AppConfig>(key: K, value: AppConfig[K]) {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
@@ -79,6 +131,90 @@ export default function AdminSettingsPage() {
           {toast.msg}
         </div>
       )}
+
+      <div className="admin-card">
+        <h3 style={{ marginBottom: 8 }}>Staff (Admins)</h3>
+        <p style={{ color: "#666", fontSize: "0.85rem", marginBottom: 16 }}>
+          Each email here can sign in to this admin panel. To add staff:
+          (1) create a Supabase Auth user in Supabase Studio with their email
+          (Authentication → Users → Add User, toggle Auto Confirm), then
+          (2) add the same email below.
+        </p>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <input
+            type="email"
+            className="form-control"
+            placeholder="new-admin@example.com"
+            value={newStaffEmail}
+            onChange={(e) => setNewStaffEmail(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button
+            className="btn btn-primary"
+            onClick={onAddStaff}
+            disabled={addingStaff || !newStaffEmail.trim()}
+          >
+            {addingStaff ? "Adding…" : "+ Add Admin"}
+          </button>
+        </div>
+        {staffLoading ? (
+          <p style={{ color: "#999", fontSize: "0.85rem" }}>Loading staff…</p>
+        ) : staff.length === 0 ? (
+          <p style={{ color: "#999", fontSize: "0.85rem" }}>No admins yet.</p>
+        ) : (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Added</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((s) => (
+                <tr key={s.email}>
+                  <td>
+                    {s.email}
+                    {s.email === user?.email && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: "0.7rem",
+                          padding: "2px 8px",
+                          borderRadius: 6,
+                          background: "#e3f2fd",
+                          color: "#1e88e5",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        you
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ color: "#666", fontSize: "0.82rem" }}>
+                    {new Date(s.createdAt).toLocaleDateString("en-PK")}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button
+                      className="icon-btn icon-btn-danger"
+                      onClick={() => onRemoveStaff(s.email)}
+                      disabled={s.email === user?.email}
+                      title={
+                        s.email === user?.email
+                          ? "You can't remove yourself"
+                          : "Remove admin"
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <div className="admin-card">
         <h3 style={{ marginBottom: 16 }}>Shipping Rules</h3>

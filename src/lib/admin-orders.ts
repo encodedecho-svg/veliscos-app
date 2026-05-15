@@ -127,6 +127,21 @@ export async function listOrderItems(orderId: string): Promise<AdminOrderItem[]>
   return (data as ItemRow[]).map(rowToItem);
 }
 
+export async function listAllOrderItems(
+  orderIds?: string[]
+): Promise<AdminOrderItem[]> {
+  let q = supabase
+    .from("order_items")
+    .select("id, order_id, product_id, product_name, unit_price, qty, line_total");
+  if (orderIds && orderIds.length > 0) q = q.in("order_id", orderIds);
+  const { data, error } = await q;
+  if (error) {
+    console.error("listAllOrderItems:", error);
+    return [];
+  }
+  return (data as ItemRow[]).map(rowToItem);
+}
+
 export async function updateOrderStatus(
   id: string,
   status: OrderStatus

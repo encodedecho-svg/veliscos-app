@@ -107,17 +107,45 @@ export default function AdminExpensesPage() {
         </button>
       </div>
 
-      <div className="kpi-grid" style={{ marginBottom: 20 }}>
+      {/* Row 1: 2 headline KPIs */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 14,
+          marginBottom: 14,
+        }}
+      >
         <div className="kpi-card">
           <div className="kpi-label">All-time Total</div>
           <div className="kpi-value">{pkr(summary.total)}</div>
+          <div className="kpi-sub">{expenses.length} entries</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">This Month</div>
           <div className="kpi-value" style={{ color: "#4a90a4" }}>
             {pkr(summary.monthTotal)}
           </div>
+          <div className="kpi-sub">
+            {
+              expenses.filter((e) =>
+                e.occurredAt.startsWith(new Date().toISOString().slice(0, 7))
+              ).length
+            }{" "}
+            entries
+          </div>
         </div>
+      </div>
+
+      {/* Row 2: 5 categories, fixed equal columns */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 1fr)",
+          gap: 14,
+          marginBottom: 20,
+        }}
+      >
         {CATEGORIES.map((c) => (
           <div className="kpi-card" key={c}>
             <div className="kpi-label">{c}</div>

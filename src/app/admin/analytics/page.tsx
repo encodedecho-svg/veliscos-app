@@ -16,7 +16,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { listOrders, listOrderItems, type AdminOrder } from "@/lib/admin-orders";
+import { listOrders, listAllOrderItems, type AdminOrder } from "@/lib/admin-orders";
 import { listAllProducts } from "@/lib/admin-products";
 import type { Product } from "@/lib/types";
 import { pkr } from "@/lib/format";
@@ -46,34 +46,31 @@ export default function AdminAnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([listOrders(), listAllProducts()]).then(async ([o, p]) => {
+    (async () => {
+      const [o, p] = await Promise.all([listOrders(), listAllProducts()]);
       setOrders(o);
       setProducts(p);
 
-      // Pull items for all orders. For large catalogues this should
-      // really be done with a server aggregate, but for now the volume
-      // is small enough.
-      const allItems = await Promise.all(o.slice(0, 200).map((or) => listOrderItems(or.id)));
+      // One batched query for ALL order_items across visible orders.
+      const items = await listAllOrderItems(o.map((or) => or.id));
       const byProduct = new Map<string, OrderItemAgg>();
-      for (const items of allItems) {
-        for (const it of items) {
-          const existing = byProduct.get(it.productId);
-          if (existing) {
-            existing.qty += it.qty;
-            existing.revenue += it.lineTotal;
-          } else {
-            byProduct.set(it.productId, {
-              productId: it.productId,
-              productName: it.productName,
-              qty: it.qty,
-              revenue: it.lineTotal,
-            });
-          }
+      for (const it of items) {
+        const existing = byProduct.get(it.productId);
+        if (existing) {
+          existing.qty += it.qty;
+          existing.revenue += it.lineTotal;
+        } else {
+          byProduct.set(it.productId, {
+            productId: it.productId,
+            productName: it.productName,
+            qty: it.qty,
+            revenue: it.lineTotal,
+          });
         }
       }
       setItemAgg(Array.from(byProduct.values()));
       setLoading(false);
-    });
+    })();
   }, []);
 
   // ── Revenue trend (last 30 days) ────────────────────────────────
