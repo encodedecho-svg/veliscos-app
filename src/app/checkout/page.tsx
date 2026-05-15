@@ -8,6 +8,7 @@ import { Container } from "@/components/Container";
 import { useCart } from "@/lib/cart";
 import { pkr } from "@/lib/format";
 import { getProductsByIds } from "@/lib/products";
+import { createOrder, type PaymentMethod } from "@/lib/orders";
 import type { Product } from "@/lib/types";
 
 const DEFAULT_SHIPPING = 200;
@@ -56,12 +57,13 @@ const PAYMENT_OPTIONS = [
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items } = useCart();
+  const { items, clear } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [payment, setPayment] = useState("cod");
+  const [payment, setPayment] = useState<PaymentMethod>("cod");
   const [submitting, setSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const ids = items.map((i) => i.id);
@@ -94,13 +96,36 @@ export default function CheckoutPage() {
   async function placeOrder(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
+    setError(null);
     setSubmitting(true);
-    // Phase 2 will replace this with a real /api/orders POST.
-    // For Phase 1 we just simulate a success so the UI flow is testable.
-    const fakeId = "VLC-" + Date.now().toString(36).toUpperCase();
-    await new Promise((r) => setTimeout(r, 600));
-    setOrderPlaced(fakeId);
-    setSubmitting(false);
+
+    const fd = new FormData(e.currentTarget);
+    const customer = {
+      firstName: String(fd.get("firstName") ?? "").trim(),
+      lastName: String(fd.get("lastName") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      phone: String(fd.get("phone") ?? "").trim(),
+      address: String(fd.get("address") ?? "").trim(),
+      city: String(fd.get("city") ?? "").trim(),
+      zip: String(fd.get("zip") ?? "").trim() || undefined,
+      notes: String(fd.get("notes") ?? "").trim() || undefined,
+    };
+
+    try {
+      const result = await createOrder({
+        customer,
+        payment,
+        items,
+        products,
+        shipping,
+      });
+      clear();
+      setOrderPlaced(result.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not place order.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (orderPlaced) {
@@ -115,8 +140,8 @@ export default function CheckoutPage() {
               Order Placed Successfully!
             </h1>
             <p className="text-veliscos-text-muted mb-5">
-              Phase 1 preview — the checkout API ships in Phase 2. Your real
-              orders will sync to Supabase from there.
+              Thank you for your order. We&apos;ll contact you on the phone
+              number provided to confirm delivery details.
             </p>
             <div className="inline-block bg-veliscos-surface-alt px-6 py-3 rounded-lg font-semibold tracking-widest mb-6 font-mono">
               {orderPlaced}
@@ -279,7 +304,7 @@ export default function CheckoutPage() {
                       name="payment"
                       value={opt.value}
                       checked={payment === opt.value}
-                      onChange={() => setPayment(opt.value)}
+                      onChange={() => setPayment(opt.value as PaymentMethod)}
                       className="w-[18px] h-[18px] accent-veliscos-accent"
                     />
                     <div>
@@ -357,6 +382,14 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {error && (
+              <div
+                role="alert"
+                className="mt-5 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+              >
+                {error}
+              </div>
+            )}
             <button
               type="submit"
               disabled={submitting}
