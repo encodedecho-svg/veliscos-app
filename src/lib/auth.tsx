@@ -41,18 +41,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      const u = data.session?.user ?? null;
-      setUser(u);
-      await checkAdmin(u?.email);
-      setLoading(false);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, sess) => {
+    let cancelled = false;
+    // Safety: never let `loading` stay true for more than 5s. If something
+    // hangs (network, RLS, deadlock), we still let the app render so the user
+    // sees something instead of a perpetual spinner.
+    const safety = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 5000);
+
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (cancelled) return;
+        const u = data.session?.user ?? null;
+        setUser(u);
+        await checkAdmin(u?.email);
+      })
+      .catch((err) => console.warn("getSession failed", err))
+      .finally(() => {
+        if (!cancelled) {
+          clearTimeout(safety);
+          setLoading(false);
+        }
+      });
+    // IMPORTANT: do not call other Supabase methods inside this callback —
+    // it holds an internal lock and awaiting another Supabase call can
+    // deadlock the auth client. Defer admin check to a microtask.
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
       const u = sess?.user ?? null;
       setUser(u);
-      await checkAdmin(u?.email);
+      setTimeout(() => {
+        checkAdmin(u?.email);
+      }, 0);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      clearTimeout(safety);
+      sub.subscription.unsubscribe();
+    };
   }, [checkAdmin]);
 
   const signIn = useCallback(async (email: string, password: string) => {
