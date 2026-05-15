@@ -23,11 +23,14 @@ create table public.admin_emails (
 
 alter table public.admin_emails enable row level security;
 
--- Admins can read the admin list (useful for the UI). No public reads.
+-- Any authenticated user can check whether THEIR OWN email is in this
+-- table — that's how the app decides if you're an admin. Without this,
+-- the table is invisible (RLS) and no one can ever prove they're staff.
 drop policy if exists "Admins read admin_emails" on public.admin_emails;
-create policy "Admins read admin_emails"
+drop policy if exists "Users can read own admin row" on public.admin_emails;
+create policy "Users can read own admin row"
   on public.admin_emails for select to authenticated
-  using (auth.email() in (select email from public.admin_emails));
+  using (email = auth.email());
 
 -- ---------------------------------------------------------------------
 -- Helper: is the current session an admin?

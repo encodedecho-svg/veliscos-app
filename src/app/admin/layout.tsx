@@ -1,14 +1,68 @@
 "use client";
 
+import "./admin.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import {
+  LayoutDashboard,
+  BarChart3,
+  ShoppingCart,
+  Package,
+  Users,
+  Handshake,
+  Banknote,
+  Ticket,
+  ListChecks,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+
+const NAV_GROUPS: {
+  title: string;
+  items: { href: string; label: string; icon: LucideIcon }[];
+}[] = [
+  {
+    title: "Analytics",
+    items: [
+      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/analytics", label: "Insights", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Management",
+    items: [
+      { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
+      { href: "/admin/products", label: "Inventory", icon: Package },
+      { href: "/admin/customers", label: "Customers", icon: Users },
+    ],
+  },
+  {
+    title: "Financials",
+    items: [
+      { href: "/admin/partners", label: "Partners", icon: Handshake },
+      { href: "/admin/expenses", label: "Expenses", icon: Banknote },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      { href: "/admin/marketing", label: "Promos", icon: Ticket },
+      { href: "/admin/activity", label: "Activity Log", icon: ListChecks },
+      { href: "/admin/settings", label: "Configuration", icon: Settings },
+    ],
+  },
+];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, isAdmin, signOut } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";
 
@@ -18,78 +72,131 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [loading, user, isAdmin, isLoginPage, router]);
 
   if (isLoginPage) {
-    return <div className="min-h-screen bg-veliscos-surface">{children}</div>;
+    return <div className="admin-root">{children}</div>;
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-veliscos-surface flex items-center justify-center text-veliscos-text-muted">
-        Loading…
+      <div className="admin-root">
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#999",
+          }}
+        >
+          Loading admin…
+        </div>
       </div>
     );
   }
 
   if (!user || !isAdmin) {
     return (
-      <div className="min-h-screen bg-veliscos-surface flex items-center justify-center text-veliscos-text-muted">
-        Redirecting to login…
+      <div className="admin-root">
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#999",
+          }}
+        >
+          Redirecting to login…
+        </div>
       </div>
     );
   }
 
-  const tabs = [
-    { href: "/admin/orders", label: "Orders" },
-    { href: "/admin/products", label: "Products" },
-  ];
-
   return (
-    <div className="min-h-screen bg-veliscos-surface">
-      <header className="bg-veliscos-card border-b border-veliscos-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-8 flex-wrap">
-          <Link href="/admin/orders" className="font-heading text-xl font-semibold">
-            Veliscos Admin
-          </Link>
-          <nav className="flex gap-1 flex-1">
-            {tabs.map((t) => {
-              const active = pathname?.startsWith(t.href);
-              return (
-                <Link
-                  key={t.href}
-                  href={t.href}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    active
-                      ? "bg-veliscos-accent text-white"
-                      : "text-veliscos-text-muted hover:bg-veliscos-surface-alt"
-                  }`}
-                >
-                  {t.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-veliscos-text-muted hidden sm:inline">
-              {user.email}
-            </span>
-            <Link
-              href="/"
-              className="text-veliscos-text-muted hover:text-veliscos-accent"
-            >
-              Storefront →
-            </Link>
+    <div className="admin-root">
+      <div className="admin-container">
+        <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
+          <div className="sidebar-header">
+            <div className="nav-logo">
+              VELISCOS<span>.</span>
+              <small>Control Center</small>
+            </div>
+          </div>
+          <div className="admin-tabs">
+            {NAV_GROUPS.map((group) => (
+              <div key={group.title}>
+                <div className="nav-group-title">{group.title}</div>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname?.startsWith(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`admin-tab ${active ? "active" : ""}`}
+                    >
+                      <Icon size={16} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="admin-sidebar-footer">
             <button
+              className="admin-tab"
               onClick={async () => {
                 await signOut();
                 router.replace("/admin/login");
               }}
-              className="px-3 py-1.5 rounded-full border border-veliscos-border text-veliscos-text-muted hover:border-veliscos-accent hover:text-veliscos-accent text-sm"
+              style={{ color: "rgba(255,255,255,0.4)" }}
             >
-              Sign out
+              <LogOut size={16} />
+              <span>Sign out</span>
             </button>
           </div>
-        </div>
-      </header>
-      <main className="max-w-7xl mx-auto px-6 py-10">{children}</main>
+        </aside>
+
+        <main className="admin-main">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 20px",
+              borderBottom: "1px solid #eee",
+              background: "white",
+            }}
+          >
+            <button
+              className="icon-btn"
+              onClick={() => setSidebarOpen((s) => !s)}
+              aria-label="Toggle sidebar"
+              style={{ display: "inline-flex" }}
+            >
+              {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
+            </button>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <span style={{ fontSize: "0.82rem", color: "#666" }}>
+                {user.email}
+              </span>
+              <Link
+                href="/"
+                style={{
+                  fontSize: "0.82rem",
+                  color: "var(--admin-primary)",
+                  textDecoration: "none",
+                  fontWeight: 600,
+                }}
+              >
+                Storefront →
+              </Link>
+            </div>
+          </div>
+          <div className="admin-content">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && isAdmin) router.replace("/admin/orders");
+    if (!loading && user && isAdmin) router.replace("/admin/dashboard");
   }, [loading, user, isAdmin, router]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -26,65 +26,74 @@ export default function AdminLoginPage() {
       setError(err);
       return;
     }
-    // AuthProvider will refetch user; effect above redirects when isAdmin is true.
-    // If the signed-in user isn't in admin_emails, show a clear message.
     setTimeout(() => {
       if (!isAdmin) {
         setError(
-          "Signed in, but this account isn't an admin. Add the email to public.admin_emails in Supabase."
+          "Signed in, but this account isn't an admin. Ask your administrator to add this email to the admin list."
         );
       }
     }, 800);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md bg-veliscos-card border border-veliscos-border rounded-veliscos p-8 shadow-lift">
-        <h1 className="font-heading text-2xl font-semibold mb-2">Admin Login</h1>
-        <p className="text-sm text-veliscos-text-muted mb-6">
-          Sign in with your Veliscos staff account.
-        </p>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <label className="block">
-            <span className="block text-sm font-semibold mb-2">Email</span>
+    <div className="admin-login">
+      <div className="login-card">
+        <div className="nav-logo">
+          VELISCOS<span>.</span>
+        </div>
+        <p>Secure Administrative Portal</p>
+
+        <form onSubmit={onSubmit}>
+          <div className="form-group" style={{ textAlign: "left" }}>
+            <label htmlFor="admin-email">Email</label>
             <input
+              id="admin-email"
               type="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="form-control"
-              autoComplete="email"
             />
-          </label>
-          <label className="block">
-            <span className="block text-sm font-semibold mb-2">Password</span>
+          </div>
+          <div className="form-group" style={{ textAlign: "left" }}>
+            <label htmlFor="admin-password">Password</label>
             <input
+              id="admin-password"
               type="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="form-control"
-              autoComplete="current-password"
             />
-          </label>
+          </div>
+
           {error && (
             <div
               role="alert"
-              className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+              style={{
+                color: "#e74c3c",
+                fontSize: "0.85rem",
+                marginTop: 4,
+                marginBottom: 16,
+                padding: "10px 12px",
+                background: "#fdecea",
+                borderRadius: 10,
+                textAlign: "left",
+              }}
             >
               {error}
             </div>
           )}
+
           <button
             type="submit"
             disabled={submitting}
-            className={`w-full px-6 py-3 rounded-full font-semibold text-sm text-white transition-all ${
-              submitting
-                ? "bg-veliscos-text-muted cursor-wait"
-                : "bg-veliscos-accent hover:bg-veliscos-accent-light"
-            }`}
+            className="btn btn-primary"
+            style={{ width: "100%" }}
           >
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? "Authenticating…" : "Authenticate"}
           </button>
         </form>
       </div>

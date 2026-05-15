@@ -72,6 +72,66 @@ export interface ProductPatch {
   featured?: boolean;
 }
 
+export interface NewProductInput {
+  id: string;
+  name: string;
+  category: ProductCategory;
+  type?: string;
+  size?: string;
+  price: number;
+  costPrice?: number;
+  stock?: number;
+  featured?: boolean;
+  description?: string;
+  howToUse?: string;
+  keyActives?: string[];
+  skinType?: string[];
+  badges?: string[];
+  ingredients?: string;
+  image?: string;
+}
+
+export async function createProduct(
+  input: NewProductInput
+): Promise<{ error: string | null }> {
+  const row = {
+    id: input.id,
+    name: input.name,
+    category: input.category,
+    type: input.type || null,
+    size: input.size || null,
+    price: input.price,
+    cost_price: input.costPrice ?? null,
+    stock: input.stock ?? 0,
+    featured: input.featured ?? false,
+    description: input.description || null,
+    how_to_use: input.howToUse || null,
+    key_actives: input.keyActives ?? [],
+    skin_type: input.skinType ?? [],
+    badges: input.badges ?? [],
+    ingredients: input.ingredients || null,
+    image: input.image || null,
+  };
+  const { error } = await supabase.from("products").insert(row);
+  return { error: error?.message ?? null };
+}
+
+export async function deleteProduct(
+  id: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  return { error: error?.message ?? null };
+}
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
 export async function patchProduct(
   id: string,
   patch: ProductPatch
