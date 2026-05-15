@@ -7,16 +7,22 @@ import { Container } from "@/components/Container";
 import { useCart } from "@/lib/cart";
 import { pkr } from "@/lib/format";
 import { getProductsByIds } from "@/lib/products";
+import { getConfig } from "@/lib/admin-config";
 import type { Product } from "@/lib/types";
-
-// Same defaults the legacy app used; Phase 2 will move these into a config row.
-const DEFAULT_SHIPPING = 200;
-const FREE_SHIP_THRESHOLD = 3000;
 
 export default function CartPage() {
   const { items, updateQty, remove } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shippingFlat, setShippingFlat] = useState(200);
+  const [freeShipThreshold, setFreeShipThreshold] = useState(3000);
+
+  useEffect(() => {
+    getConfig().then((c) => {
+      setShippingFlat(c.shippingFlat);
+      setFreeShipThreshold(c.freeShippingThreshold);
+    });
+  }, []);
 
   useEffect(() => {
     const ids = items.map((i) => i.id);
@@ -38,7 +44,7 @@ export default function CartPage() {
     return s + (p ? p.price * i.qty : 0);
   }, 0);
   const shipping =
-    subtotal === 0 ? 0 : subtotal >= FREE_SHIP_THRESHOLD ? 0 : DEFAULT_SHIPPING;
+    subtotal === 0 ? 0 : subtotal >= freeShipThreshold ? 0 : shippingFlat;
   const total = subtotal + shipping;
 
   if (loading) {

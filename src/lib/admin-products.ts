@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logActivity } from "./admin-activity";
 import type { Product, ProductCategory } from "./types";
 
 type ProductRow = {
@@ -113,6 +114,14 @@ export async function createProduct(
     image: input.image || null,
   };
   const { error } = await supabase.from("products").insert(row);
+  if (!error) {
+    logActivity({
+      action: "product.created",
+      entityType: "product",
+      entityId: input.id,
+      details: { name: input.name, price: input.price },
+    });
+  }
   return { error: error?.message ?? null };
 }
 
@@ -120,6 +129,13 @@ export async function deleteProduct(
   id: string
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.from("products").delete().eq("id", id);
+  if (!error) {
+    logActivity({
+      action: "product.deleted",
+      entityType: "product",
+      entityId: id,
+    });
+  }
   return { error: error?.message ?? null };
 }
 
@@ -143,5 +159,13 @@ export async function patchProduct(
   if (patch.status !== undefined) dbPatch.status = patch.status;
   if (patch.featured !== undefined) dbPatch.featured = patch.featured;
   const { error } = await supabase.from("products").update(dbPatch).eq("id", id);
+  if (!error) {
+    logActivity({
+      action: "product.updated",
+      entityType: "product",
+      entityId: id,
+      details: dbPatch as Record<string, unknown>,
+    });
+  }
   return { error: error?.message ?? null };
 }

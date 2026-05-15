@@ -9,10 +9,9 @@ import { useCart } from "@/lib/cart";
 import { pkr } from "@/lib/format";
 import { getProductsByIds } from "@/lib/products";
 import { createOrder, type PaymentMethod } from "@/lib/orders";
+import { getConfig } from "@/lib/admin-config";
+import { validatePromoCode, type PromoCode } from "@/lib/admin-promos";
 import type { Product } from "@/lib/types";
-
-const DEFAULT_SHIPPING = 200;
-const FREE_SHIP_THRESHOLD = 3000;
 
 const PAKISTANI_CITIES = [
   "Karachi",
@@ -65,6 +64,24 @@ export default function CheckoutPage() {
   const [orderPlaced, setOrderPlaced] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [shippingFlat, setShippingFlat] = useState(200);
+  const [freeShipThreshold, setFreeShipThreshold] = useState(3000);
+
+  const [promoInput, setPromoInput] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{
+    code: string;
+    discount: number;
+  } | null>(null);
+  const [promoErr, setPromoErr] = useState<string | null>(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
+
+  useEffect(() => {
+    getConfig().then((c) => {
+      setShippingFlat(c.shippingFlat);
+      setFreeShipThreshold(c.freeShippingThreshold);
+    });
+  }, []);
+
   useEffect(() => {
     const ids = items.map((i) => i.id);
     if (ids.length === 0) {
@@ -90,8 +107,30 @@ export default function CheckoutPage() {
     return s + (p ? p.price * i.qty : 0);
   }, 0);
   const shipping =
-    subtotal === 0 ? 0 : subtotal >= FREE_SHIP_THRESHOLD ? 0 : DEFAULT_SHIPPING;
-  const total = subtotal + shipping;
+    subtotal === 0 ? 0 : subtotal >= freeShipThreshold ? 0 : shippingFlat;
+  const discount = promoApplied?.discount ?? 0;
+  const total = Math.max(0, subtotal - discount + shipping);
+
+  async function applyPromo() {
+    if (!promoInput.trim()) return;
+    setPromoErr(null);
+    setValidatingPromo(true);
+    const result = await validatePromoCode(promoInput, subtotal);
+    setValidatingPromo(false);
+    if (!result.ok || !result.code) {
+      setPromoErr(result.error ?? "Invalid code.");
+      setPromoApplied(null);
+      return;
+    }
+    setPromoApplied({ code: result.code.code, discount: result.discount ?? 0 });
+    setPromoInput(result.code.code);
+  }
+
+  function clearPromo() {
+    setPromoApplied(null);
+    setPromoErr(null);
+    setPromoInput("");
+  }
 
   async function placeOrder(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -118,7 +157,15 @@ export default function CheckoutPage() {
         items,
         products,
         shipping,
+        discount,
+        promoCode: promoApplied?.code,
       });
+      if (promoApplied) {
+        // Fire-and-forget; if it fails the order still went through.
+        import("@/lib/admin-promos").then((m) =>
+          m.incrementPromoUsage(promoApplied.code).catch(() => {})
+        );
+      }
       clear();
       setOrderPlaced(result.id);
     } catch (err) {
@@ -361,11 +408,61 @@ export default function CheckoutPage() {
               })}
             </div>
 
-            <div className="space-y-2 text-sm pt-3 border-t border-veliscos-border">
+            <div className="pt-3 border-t border-veliscos-border">
+              <label className="block text-xs font-semibold mb-2 text-veliscos-text-muted uppercase tracking-wider">
+                Promo Code
+              </label>
+              {promoApplied ? (
+                <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm">
+                  <span>
+                    <strong className="text-emerald-700">
+                      {promoApplied.code}
+                    </strong>{" "}
+                    applied · −{pkr(promoApplied.discount)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearPromo}
+                    className="text-emerald-700 underline text-xs"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    className="flex-1 px-3 py-2 rounded-lg border border-veliscos-border text-sm uppercase"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyPromo}
+                    disabled={validatingPromo}
+                    className="px-4 py-2 rounded-lg bg-veliscos-text text-white text-xs font-semibold disabled:opacity-60"
+                  >
+                    {validatingPromo ? "…" : "Apply"}
+                  </button>
+                </div>
+              )}
+              {promoErr && (
+                <p className="text-xs text-rose-600 mt-2">{promoErr}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 text-sm pt-3 mt-3 border-t border-veliscos-border">
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span>{pkr(subtotal)}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-emerald-700">
+                  <span>Discount ({promoApplied?.code})</span>
+                  <span>−{pkr(discount)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Shipping</span>
                 <span>

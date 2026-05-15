@@ -20,19 +20,22 @@ export interface CreateOrderInput {
   items: CartItem[];
   products: Product[];
   shipping: number;
+  discount?: number;
+  promoCode?: string;
 }
 
 export interface CreateOrderResult {
   id: string;
   subtotal: number;
   shipping: number;
+  discount: number;
   total: number;
 }
 
 export async function createOrder(
   input: CreateOrderInput
 ): Promise<CreateOrderResult> {
-  const { customer, payment, items, products, shipping } = input;
+  const { customer, payment, items, products, shipping, discount = 0, promoCode } = input;
 
   const productById = new Map(products.map((p) => [p.id, p]));
   const lineItems = items
@@ -55,7 +58,8 @@ export async function createOrder(
   }
 
   const subtotal = lineItems.reduce((s, li) => s + li.line_total, 0);
-  const total = subtotal + shipping;
+  const safeDiscount = Math.max(0, Math.min(discount, subtotal));
+  const total = Math.max(0, subtotal - safeDiscount + shipping);
 
   const { data: orderRows, error: orderErr } = await supabase
     .from("orders")
@@ -71,6 +75,8 @@ export async function createOrder(
       payment_method: payment,
       subtotal,
       shipping,
+      discount: safeDiscount,
+      promo_code: promoCode ?? null,
       total,
     })
     .select("id")
@@ -94,5 +100,5 @@ export async function createOrder(
     );
   }
 
-  return { id: orderId, subtotal, shipping, total };
+  return { id: orderId, subtotal, shipping, discount: safeDiscount, total };
 }

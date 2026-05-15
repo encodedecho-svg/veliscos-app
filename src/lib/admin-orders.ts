@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logActivity } from "./admin-activity";
 
 export type OrderStatus =
   | "pending"
@@ -134,5 +135,13 @@ export async function updateOrderStatus(
     .from("orders")
     .update({ status })
     .eq("id", id);
+  if (!error) {
+    logActivity({
+      action: "order.status_changed",
+      entityType: "order",
+      entityId: id,
+      details: { status },
+    });
+  }
   return { error: error?.message ?? null };
 }
