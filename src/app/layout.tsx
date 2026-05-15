@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import { AuthProvider } from "@/lib/auth";
+import { StorefrontChrome } from "@/components/StorefrontChrome";
 
 export const metadata: Metadata = {
   title: "Veliscos — Science-Backed Skincare, Simplified",
@@ -30,11 +30,11 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans bg-veliscos-surface text-veliscos-text">
-        <CartProvider>
-          <Navbar />
-          <main className="min-h-screen">{children}</main>
-          <Footer />
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <StorefrontChrome>{children}</StorefrontChrome>
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );
