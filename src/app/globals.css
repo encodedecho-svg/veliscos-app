@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: #FAFAFA;
+  color: #1A1A1A;
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .form-control {
+    @apply w-full px-4 py-3 rounded-veliscos border border-veliscos-border text-sm bg-white outline-none transition-all focus:border-veliscos-accent focus:ring-4 focus:ring-veliscos-accent/10;
+  }
+  textarea.form-control {
+    @apply min-h-[60px] resize-y;
+  }
+}
